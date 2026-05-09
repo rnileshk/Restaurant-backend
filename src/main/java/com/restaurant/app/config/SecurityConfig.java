@@ -1,0 +1,269 @@
+package com.restaurant.app.config;
+
+import com.restaurant.app.security.JwtAuthenticationFilter;
+import com.restaurant.app.service.CustomUserDetailsService;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+import org.springframework.http.HttpMethod;
+
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.AuthenticationProvider;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
+
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+
+@Configuration
+@EnableMethodSecurity
+public class SecurityConfig {
+
+    private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final CustomUserDetailsService customUserDetailsService;
+
+    public SecurityConfig(
+            JwtAuthenticationFilter jwtAuthenticationFilter,
+            CustomUserDetailsService customUserDetailsService
+    ) {
+        this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+        this.customUserDetailsService = customUserDetailsService;
+    }
+
+    @Bean
+    public SecurityFilterChain securityFilterChain(
+            HttpSecurity http
+    ) throws Exception {
+
+        http
+                .csrf(csrf -> csrf.disable())
+
+                .cors(cors -> {})
+
+                .sessionManagement(session ->
+                        session.sessionCreationPolicy(
+                                SessionCreationPolicy.STATELESS
+                        )
+                )
+
+                .authorizeHttpRequests(auth -> auth
+
+                        /*
+                         =====================================
+                         PUBLIC APIs
+                         =====================================
+                        */
+
+                        .requestMatchers(
+                                "/api/auth/register",
+                                "/api/auth/login",
+                                "/api/public/**",
+                                "/api/qr/**",
+                                "/swagger-ui/**",
+                                "/v3/api-docs/**",
+                                "/api/auth/refresh-token"
+                        ).permitAll()
+
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/menu/**"
+                        ).permitAll()
+
+                        /*
+                         =====================================
+                         ADMIN APIs
+                         =====================================
+                        */
+
+                        .requestMatchers(
+                                "/api/admin/**",
+                                "/api/auth/create-employee",
+                                "/api/upload/**"
+                        ).hasRole("ADMIN")
+
+                        /*
+                         =====================================
+                         MENU MANAGEMENT
+                         Only admin can add/update/delete menu
+                         =====================================
+                        */
+
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/menu/**"
+                        ).hasRole("ADMIN")
+
+                        .requestMatchers(
+                                HttpMethod.PUT,
+                                "/api/menu/**"
+                        ).hasRole("ADMIN")
+
+                        .requestMatchers(
+                                HttpMethod.DELETE,
+                                "/api/menu/**"
+                        ).hasRole("ADMIN")
+
+                        /*
+                         =====================================
+                         USER APIs
+                         =====================================
+                        */
+
+                        .requestMatchers(
+                                "/api/user/**"
+                        ).hasAnyRole("USER", "ADMIN")
+
+                        /*
+                         =====================================
+                         BOOKING APIs
+                         USER can create booking
+                         EMPLOYEE can verify/check-in
+                         ADMIN can manage all
+                         =====================================
+                        */
+
+                        .requestMatchers(
+                                "/api/bookings/**"
+                        ).hasAnyRole(
+                                "USER",
+                                "ADMIN",
+                                "EMPLOYEE"
+                        )
+
+                        /*
+                         =====================================
+                         ORDER APIs
+                         USER can order
+                         EMPLOYEE can update order
+                         ADMIN can manage
+                         =====================================
+                        */
+
+                        .requestMatchers(
+                                "/api/orders/**"
+                        ).hasAnyRole(
+                                "USER",
+                                "ADMIN",
+                                "EMPLOYEE",
+                                "DELIVERY_STAFF"
+                        )
+
+                        /*
+                         =====================================
+                         PAYMENT APIs
+                         =====================================
+                        */
+
+                        .requestMatchers(
+                                "/api/payments/**",
+                                "/api/razorpay/**"
+                        ).hasAnyRole(
+                                "USER",
+                                "ADMIN"
+                        )
+
+                        /*
+                         =====================================
+                         BILLING APIs
+                         =====================================
+                        */
+
+                        .requestMatchers(
+                                "/api/billing/**"
+                        ).hasAnyRole(
+                                "ADMIN",
+                                "BILLING_STAFF",
+                                "EMPLOYEE"
+                        )
+
+                        /*
+                         =====================================
+                         DELIVERY APIs
+                         =====================================
+                        */
+
+                        .requestMatchers(
+                                "/api/delivery/**"
+                        ).hasAnyRole(
+                                "ADMIN",
+                                "DELIVERY_STAFF",
+                                "EMPLOYEE"
+                        )
+
+                        /*
+                         =====================================
+                         EMPLOYEE APIs
+                         =====================================
+                        */
+
+                        .requestMatchers(
+                                "/api/employee/**"
+                        ).hasAnyRole(
+                                "ADMIN",
+                                "EMPLOYEE",
+                                "BILLING_STAFF",
+                                "DELIVERY_STAFF"
+                        )
+
+                        /*
+                         =====================================
+                         EVERYTHING ELSE
+                         =====================================
+                        */
+
+                        .anyRequest()
+                        .authenticated()
+                )
+
+                .authenticationProvider(
+                        authenticationProvider()
+                )
+
+                .addFilterBefore(
+                        jwtAuthenticationFilter,
+                        UsernamePasswordAuthenticationFilter.class
+                );
+
+        return http.build();
+    }
+
+    @Bean
+    public AuthenticationProvider authenticationProvider() {
+
+        DaoAuthenticationProvider provider =
+                new DaoAuthenticationProvider();
+
+        provider.setUserDetailsService(
+                customUserDetailsService
+        );
+
+        provider.setPasswordEncoder(
+                passwordEncoder()
+        );
+
+        return provider;
+    }
+
+    @Bean
+    public AuthenticationManager authenticationManager(
+            AuthenticationConfiguration configuration
+    ) throws Exception {
+
+        return configuration.getAuthenticationManager();
+    }
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+
+        return new BCryptPasswordEncoder();
+    }
+}
