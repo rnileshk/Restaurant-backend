@@ -11,13 +11,11 @@ import com.restaurant.app.entity.User;
 import com.restaurant.app.repository.UserRepository;
 import com.restaurant.app.security.JwtService;
 import com.restaurant.app.service.RefreshTokenService;
-
+import jakarta.validation.Valid;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
-import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -50,12 +48,14 @@ public class AuthController {
             throw new RuntimeException("Email already registered");
         }
 
+        Role role = resolveRole(request.getRole());
+
         User user = User.builder()
                 .name(request.getName())
                 .email(request.getEmail())
                 .phone(request.getPhone())
                 .password(passwordEncoder.encode(request.getPassword()))
-                .role(Role.USER)
+                .role(role)
                 .active(true)
                 .build();
 
@@ -105,15 +105,13 @@ public class AuthController {
     }
 
     @PostMapping("/create-employee")
-    public AuthResponse createEmployee(
-            @RequestBody CreateEmployeeRequest request
-    ) {
+    public AuthResponse createEmployee(@RequestBody CreateEmployeeRequest request) {
 
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new RuntimeException("Email already exists");
         }
 
-        if (request.getRole() == Role.USER || request.getRole() == null) {
+        if (request.getRole() == null || request.getRole() == Role.USER) {
             throw new RuntimeException("Admin can only create employee/admin staff roles");
         }
 
@@ -144,11 +142,10 @@ public class AuthController {
     }
 
     @PostMapping("/refresh-token")
-        public AuthResponse refreshToken(
-        @RequestBody RefreshTokenRequest request
-        ) {
+    public AuthResponse refreshToken(@RequestBody RefreshTokenRequest request) {
+
         RefreshToken refreshToken = refreshTokenService
-            .findByToken(request.getRefreshToken());
+                .findByToken(request.getRefreshToken());
 
         refreshTokenService.verifyExpiration(refreshToken);
 
@@ -157,11 +154,28 @@ public class AuthController {
         String newAccessToken = jwtService.generateToken(user);
 
         return new AuthResponse(
-            newAccessToken,
-            refreshToken.getToken(),
-            user.getName(),
-            user.getEmail(),
-            user.getRole()
+                newAccessToken,
+                refreshToken.getToken(),
+                user.getName(),
+                user.getEmail(),
+                user.getRole()
         );
+    }
+
+    private Role resolveRole(String requestRole) {
+        if (requestRole == null || requestRole.isBlank()) {
+            return Role.USER;
+        }
+
+        String cleanedRole = requestRole
+                .trim()
+                .replace("ROLE_", "")
+                .toUpperCase();
+
+        try {
+            return Role.valueOf(cleanedRole);
+        } catch (IllegalArgumentException e) {
+            throw new RuntimeException("Invalid role: " + requestRole);
+        }
     }
 }

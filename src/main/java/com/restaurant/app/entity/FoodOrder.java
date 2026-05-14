@@ -1,12 +1,16 @@
 package com.restaurant.app.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Entity
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 @Table(name = "food_orders")
 @Getter
 @Setter
@@ -21,14 +25,26 @@ public class FoodOrder {
 
     private String orderCode;
 
-    @ManyToOne
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "password", "authorities"})
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
     private User user;
 
     @OneToMany(
-        mappedBy = "order",
-        cascade = CascadeType.ALL
+            mappedBy = "order",
+            cascade = CascadeType.ALL,
+            orphanRemoval = true
     )
-    private List<OrderItem> items;
+    @Builder.Default
+    private List<OrderItem> items = new ArrayList<>();
+
+    @JsonIgnore
+    @OneToOne(
+            mappedBy = "order",
+            cascade = CascadeType.ALL,
+            orphanRemoval = true
+    )
+    private Payment payment;
 
     private Double totalAmount;
 
@@ -54,8 +70,13 @@ public class FoodOrder {
 
     @PrePersist
     public void onCreate() {
+        if (createdAt == null) {
+            createdAt = LocalDateTime.now();
+        }
 
-        createdAt = LocalDateTime.now();
+        if (orderCode == null || orderCode.isBlank()) {
+            orderCode = "ORD-" + System.currentTimeMillis();
+        }
 
         if (status == null) {
             status = OrderStatus.PENDING;

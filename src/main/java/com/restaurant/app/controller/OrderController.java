@@ -4,73 +4,74 @@ import com.restaurant.app.entity.DeliveryStatus;
 import com.restaurant.app.entity.FoodOrder;
 import com.restaurant.app.entity.OrderStatus;
 import com.restaurant.app.service.OrderService;
-import org.springframework.security.core.Authentication;
 
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
 @RestController
 @RequestMapping("/api/orders")
-@CrossOrigin("*")
+@CrossOrigin(origins = "*")
 public class OrderController {
 
     private final OrderService orderService;
 
-    public OrderController(
-            OrderService orderService
-    ) {
+    public OrderController(OrderService orderService) {
         this.orderService = orderService;
     }
 
     @PostMapping
-    public FoodOrder createOrder(
+    public ResponseEntity<FoodOrder> createOrder(
             @RequestBody FoodOrder order,
             Authentication authentication
     ) {
-        return orderService.createOrder(order, authentication.getName());
+        String email = authentication != null ? authentication.getName() : null;
+
+        FoodOrder savedOrder = orderService.createOrder(order, email);
+
+        return ResponseEntity.ok(savedOrder);
     }
 
     @GetMapping
-    public List<FoodOrder> getAllOrders() {
-        return orderService.getAllOrders();
-    }
-
-    @GetMapping("/{id}")
-    public FoodOrder getOrderById(
-            @PathVariable Long id
-    ) {
-        return orderService.getOrderById(id);
-    }
-
-    @PutMapping("/{id}/status")
-    public FoodOrder updateStatus(
-            @PathVariable Long id,
-            @RequestParam OrderStatus status
-    ) {
-        return orderService.updateStatus(id, status);
-    }
-
-    @PutMapping("/{id}/delivery-status")
-    public FoodOrder updateDeliveryStatus(
-            @PathVariable Long id,
-            @RequestParam DeliveryStatus status
-    ) {
-        return orderService.updateDeliveryStatus(id, status);
-    }
-
-    @DeleteMapping("/{id}")
-    public String deleteOrder(
-            @PathVariable Long id
-    ) {
-        orderService.deleteOrder(id);
-        return "Order deleted successfully";
+    public ResponseEntity<List<FoodOrder>> getAllOrders() {
+        return ResponseEntity.ok(orderService.getAllOrders());
     }
 
     @GetMapping("/my")
-    public List<FoodOrder> getMyOrders(
-        Authentication authentication
+    public ResponseEntity<List<FoodOrder>> getMyOrders(Authentication authentication) {
+
+        String email = authentication != null ? authentication.getName() : null;
+
+        return ResponseEntity.ok(orderService.getMyOrders(email));
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<FoodOrder> getOrderById(@PathVariable Long id) {
+        return ResponseEntity.ok(orderService.getOrderById(id));
+    }
+
+    @PutMapping("/{id}/status")
+    public ResponseEntity<FoodOrder> updateStatus(
+            @PathVariable Long id,
+            @RequestParam OrderStatus status
     ) {
-        return orderService.getMyOrders(authentication.getName());
+        return ResponseEntity.ok(orderService.updateStatus(id, status));
+    }
+
+    @PutMapping("/{id}/delivery-status")
+    public ResponseEntity<FoodOrder> updateDeliveryStatus(
+            @PathVariable Long id,
+            @RequestParam DeliveryStatus status
+    ) {
+        return ResponseEntity.ok(orderService.updateDeliveryStatus(id, status));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<String> deleteOrder(@PathVariable Long id) {
+        orderService.deleteOrder(id);
+
+        return ResponseEntity.ok("Order deleted successfully");
     }
 }

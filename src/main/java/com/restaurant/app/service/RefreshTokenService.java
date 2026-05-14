@@ -4,7 +4,6 @@ import com.restaurant.app.entity.RefreshToken;
 import com.restaurant.app.entity.User;
 import com.restaurant.app.repository.RefreshTokenRepository;
 import com.restaurant.app.repository.UserRepository;
-
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,12 +27,26 @@ public class RefreshTokenService {
     }
 
     @Transactional
-    public RefreshToken createRefreshToken(String email) {
+    public RefreshToken createRefreshToken(User user) {
+        refreshTokenRepository.deleteByUser(user);
+        refreshTokenRepository.flush();
 
+        RefreshToken refreshToken = RefreshToken.builder()
+                .user(user)
+                .token(UUID.randomUUID().toString())
+                .expiryDate(Instant.now().plusMillis(refreshTokenDurationMs))
+                .build();
+
+        return refreshTokenRepository.save(refreshToken);
+    }
+
+    @Transactional
+    public RefreshToken createRefreshToken(String email) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         refreshTokenRepository.deleteByUser(user);
+        refreshTokenRepository.flush();
 
         RefreshToken refreshToken = RefreshToken.builder()
                 .user(user)
@@ -45,7 +58,6 @@ public class RefreshTokenService {
     }
 
     public RefreshToken verifyExpiration(RefreshToken token) {
-
         if (token.getExpiryDate().isBefore(Instant.now())) {
             refreshTokenRepository.delete(token);
             throw new RuntimeException("Refresh token expired. Please login again.");

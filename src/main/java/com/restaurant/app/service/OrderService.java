@@ -1,24 +1,21 @@
 package com.restaurant.app.service;
 
-import com.restaurant.app.entity.DeliveryStatus;
-import com.restaurant.app.entity.FoodOrder;
-import com.restaurant.app.entity.OrderItem;
-import com.restaurant.app.entity.OrderStatus;
-import com.restaurant.app.entity.User;
-
+import com.restaurant.app.entity.*;
 import com.restaurant.app.repository.OrderRepository;
 import com.restaurant.app.repository.UserRepository;
 
+import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
 @Service
 public class OrderService {
 
-    private final UserRepository userRepository;
     private final OrderRepository orderRepository;
+    private final UserRepository userRepository;
 
     public OrderService(
             OrderRepository orderRepository,
@@ -28,176 +25,113 @@ public class OrderService {
         this.userRepository = userRepository;
     }
 
-    /*
-     =====================================
-     CREATE ORDER
-     =====================================
-    */
+    @Transactional
+    public FoodOrder createOrder(FoodOrder order, String email) {
+        if (order == null) {
+            throw new RuntimeException("Order data is missing");
+        }
 
-    public FoodOrder createOrder(
-            FoodOrder order,
-            String email
-    ) {
+        if (email != null && !email.isBlank()) {
+            User user = userRepository.findByEmail(email)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
 
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() ->
+            order.setUser(user);
+        }
 
-                        new RuntimeException(
-                                "User not found"
-                        )
-                );
+        if (order.getOrderCode() == null || order.getOrderCode().isBlank()) {
+            order.setOrderCode(
+                    "ORD-" + UUID.randomUUID()
+                            .toString()
+                            .substring(0, 8)
+                            .toUpperCase()
+            );
+        }
 
-        order.setUser(user);
+        if (order.getStatus() == null) {
+            order.setStatus(OrderStatus.PENDING);
+        }
 
-        order.setOrderCode(
-                "ORD-"
-                        + UUID.randomUUID()
-                        .toString()
-                        .substring(0, 8)
-                        .toUpperCase()
-        );
-
-        order.setStatus(
-                OrderStatus.PENDING
-        );
-
-        order.setDeliveryStatus(
-                DeliveryStatus.PENDING
-        );
-
-        /*
-         =====================================
-         LINK ORDER ITEMS
-         =====================================
-        */
+        if (order.getDeliveryStatus() == null) {
+            order.setDeliveryStatus(DeliveryStatus.PENDING);
+        }
 
         double totalAmount = 0.0;
 
-        if (order.getItems() != null) {
-
+        if (order.getItems() != null && !order.getItems().isEmpty()) {
             for (OrderItem item : order.getItems()) {
-
                 item.setOrder(order);
 
-                if (
-                        item.getMenuItem() != null
-                                &&
-                                item.getMenuItem().getPrice() != null
-                ) {
-
-                    item.setPrice(
-                            item.getMenuItem().getPrice()
-                    );
-
-                    item.setTotalPrice(
-                            item.getPrice()
-                                    * item.getQuantity()
-                    );
-
-                    totalAmount += item.getTotalPrice();
+                if (item.getQuantity() == null || item.getQuantity() <= 0) {
+                    item.setQuantity(1);
                 }
+
+                if (
+                        item.getMenuItem() != null &&
+                        item.getMenuItem().getPrice() != null
+                ) {
+                    item.setPrice(item.getMenuItem().getPrice());
+                    item.setName(item.getMenuItem().getName());
+                }
+
+                double price = item.getPrice() != null ? item.getPrice() : 0.0;
+                double itemTotal = price * item.getQuantity();
+
+                item.setTotalPrice(itemTotal);
+                totalAmount += itemTotal;
             }
         }
 
-        order.setTotalAmount(totalAmount);
+        if (order.getTotalAmount() == null || order.getTotalAmount() <= 0) {
+            order.setTotalAmount(totalAmount);
+        }
 
-        return orderRepository.save(order);
+        FoodOrder savedOrder = orderRepository.save(order);
+        orderRepository.flush();
+
+        return savedOrder;
     }
 
-    /*
-     =====================================
-     GET ALL ORDERS
-     =====================================
-    */
+        public List<FoodOrder> getAllOrders() {
+                return orderRepository.findAll();
+        }
 
-    public List<FoodOrder> getAllOrders() {
+        public List<FoodOrder> getMyOrders(String email) {
 
-        return orderRepository.findAll();
-    }
+        if (email == null || email.isBlank()) {
+                return Collections.emptyList();
+        }
 
-    /*
-     =====================================
-     GET MY ORDERS
-     =====================================
-    */
+        return orderRepository.findAll()
+            .stream()
+            .filter(order ->
+                    order.getUser() != null &&
+                    order.getUser().getEmail() != null &&
+                    order.getUser().getEmail().equals(email)
+            )
+            .toList();
+        }
 
-    public List<FoodOrder> getMyOrders(
-            String email
-    ) {
-
-        return orderRepository.findByUserEmail(email);
-    }
-
-    /*
-     =====================================
-     GET ORDER BY ID
-     =====================================
-    */
-
-    public FoodOrder getOrderById(
-            Long id
-    ) {
-
+    public FoodOrder getOrderById(Long id) {
         return orderRepository.findById(id)
-                .orElseThrow(() ->
-
-                        new RuntimeException(
-                                "Order not found"
-                        )
-                );
+                .orElseThrow(() -> new RuntimeException("Order not found"));
     }
 
-    /*
-     =====================================
-     UPDATE ORDER STATUS
-     =====================================
-    */
-
-    public FoodOrder updateStatus(
-            Long id,
-            OrderStatus status
-    ) {
-
-        FoodOrder order =
-                getOrderById(id);
-
+    public FoodOrder updateStatus(Long id, OrderStatus status) {
+        FoodOrder order = getOrderById(id);
         order.setStatus(status);
 
         return orderRepository.save(order);
     }
 
-    /*
-     =====================================
-     UPDATE DELIVERY STATUS
-     =====================================
-    */
-
-    public FoodOrder updateDeliveryStatus(
-            Long id,
-            DeliveryStatus status
-    ) {
-
-        FoodOrder order =
-                getOrderById(id);
-
+    public FoodOrder updateDeliveryStatus(Long id, DeliveryStatus status) {
+        FoodOrder order = getOrderById(id);
         order.setDeliveryStatus(status);
 
         return orderRepository.save(order);
     }
 
-    /*
-     =====================================
-     DELETE ORDER
-     =====================================
-    */
-
-    public void deleteOrder(
-            Long id
-    ) {
-
-        FoodOrder order =
-                getOrderById(id);
-
+    public void deleteOrder(Long id) {
+        FoodOrder order = getOrderById(id);
         orderRepository.delete(order);
     }
 }

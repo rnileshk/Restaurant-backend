@@ -4,7 +4,9 @@ import com.restaurant.app.entity.*;
 
 import com.restaurant.app.repository.*;
 
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashMap;
 import java.util.List;
@@ -21,6 +23,8 @@ public class AdminController {
     private final PaymentRepository paymentRepository;
     private final BillRepository billRepository;
     private final DeliveryRepository deliveryRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final RefreshTokenRepository refreshTokenRepository;
 
     public AdminController(
             UserRepository userRepository,
@@ -28,7 +32,9 @@ public class AdminController {
             BookingRepository bookingRepository,
             PaymentRepository paymentRepository,
             BillRepository billRepository,
-            DeliveryRepository deliveryRepository
+            DeliveryRepository deliveryRepository,
+            PasswordEncoder passwordEncoder,
+            RefreshTokenRepository refreshTokenRepository
     ) {
         this.userRepository = userRepository;
         this.orderRepository = orderRepository;
@@ -36,6 +42,8 @@ public class AdminController {
         this.paymentRepository = paymentRepository;
         this.billRepository = billRepository;
         this.deliveryRepository = deliveryRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.refreshTokenRepository = refreshTokenRepository;
     }
 
     /*
@@ -175,4 +183,35 @@ public class AdminController {
 
         return deliveryRepository.findAll();
     }
+
+    @PutMapping("/users/{id}")
+public User updateUser(@PathVariable Long id, @RequestBody User updatedUser) {
+    User user = userRepository.findById(id)
+            .orElseThrow(() -> new RuntimeException("User not found"));
+
+    user.setName(updatedUser.getName());
+    user.setEmail(updatedUser.getEmail());
+    user.setPhone(updatedUser.getPhone());
+    user.setRole(updatedUser.getRole());
+    user.setActive(updatedUser.getActive());
+
+    if (updatedUser.getPassword() != null && !updatedUser.getPassword().isBlank()) {
+        user.setPassword(passwordEncoder.encode(updatedUser.getPassword()));
+    }
+
+    return userRepository.save(user);
+}
+
+@Transactional
+@DeleteMapping("/users/{id}")
+public String deleteUser(@PathVariable Long id) {
+    User user = userRepository.findById(id)
+            .orElseThrow(() -> new RuntimeException("User not found"));
+
+    refreshTokenRepository.deleteByUser(user);
+
+    userRepository.delete(user);
+
+    return "User deleted successfully";
+}
 }

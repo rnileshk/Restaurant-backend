@@ -3,7 +3,7 @@ package com.restaurant.app.entity;
 import jakarta.persistence.*;
 
 import lombok.*;
-
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
@@ -13,6 +13,7 @@ import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "password", "authorities"})
 @Entity
 @Table(name = "users")
 @Getter

@@ -2,7 +2,7 @@ package com.restaurant.app.controller;
 
 import com.restaurant.app.entity.Bill;
 import com.restaurant.app.service.BillingService;
-
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -19,26 +19,42 @@ public class BillingController {
     }
 
     @PostMapping
-    public Bill createBill(@RequestBody Bill bill) {
-        return billingService.createBill(bill);
+    public ResponseEntity<Bill> createBill(
+            @RequestBody Bill bill
+    ) {
+
+        return ResponseEntity.ok(
+                billingService.createBill(bill)
+        );
     }
 
     @GetMapping
-    public List<Bill> getBills() {
-        return billingService.getAllBills();
+    public ResponseEntity<List<Bill>> getAllBills() {
+
+        return ResponseEntity.ok(
+                billingService.getAllBills()
+        );
     }
 
-    @PostMapping("/order/{orderId}")
-    public Bill createOrderBill(
-        @PathVariable Long orderId
+    @GetMapping("/{id}")
+    public ResponseEntity<Bill> getBillById(
+            @PathVariable Long id
     ) {
-        return billingService.createBillForOrder(orderId);
+
+        return ResponseEntity.ok(
+                billingService.getBillById(id)
+        );
     }
 
-    @PostMapping("/booking/{bookingId}")
-    public Bill createBookingBill(
-        @PathVariable Long bookingId
+    @DeleteMapping("/{id}")
+    public ResponseEntity<String> deleteBill(
+            @PathVariable Long id
     ) {
-        return billingService.createBillForBooking(bookingId);
+
+        billingService.deleteBill(id);
+
+        return ResponseEntity.ok(
+                "Bill deleted successfully"
+        );
     }
 }

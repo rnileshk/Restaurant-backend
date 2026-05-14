@@ -1,7 +1,7 @@
 package com.restaurant.app.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
-
 import lombok.*;
 
 @Entity
@@ -17,25 +17,16 @@ public class OrderItem {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    /*
-     =====================================
-     MENU ITEM
-     =====================================
-    */
+    @JsonIgnore
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "order_id")
+    private FoodOrder order;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "menu_item_id")
     private MenuItem menuItem;
 
-    /*
-     =====================================
-     ORDER
-     =====================================
-    */
-
-    @ManyToOne
-    @JoinColumn(name = "order_id")
-    private FoodOrder order;
+    private String name;
 
     private Integer quantity;
 
