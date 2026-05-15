@@ -57,6 +57,13 @@ public class SecurityConfig {
 
                 .authorizeHttpRequests(auth -> auth
 
+
+                        .requestMatchers(
+                                        "/",
+                                "/api/health",
+                                "/api/auth/**"
+                        ).permitAll()
+
                         /*
                          =====================================
                          PUBLIC APIs
