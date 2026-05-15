@@ -24,7 +24,8 @@ public class CorsConfig {
         config.setAllowedOrigins(List.of(
                 frontendUrl,
                 "http://localhost:5173",
-                "http://localhost:3000"
+                "http://localhost:3000",
+                "https://my-resturents.vercel.app"
         ));
 
         config.setAllowedMethods(List.of(
